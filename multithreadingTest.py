@@ -8,6 +8,7 @@ def processFile(fName):
     print("Processed file "+fName+" at time "+dtString+"\n")
 
 def fileMonitor(dir):
+    print("entering filemonitor")
     processedFiles = []
 
     files = os.listdir(dir)
@@ -28,7 +29,7 @@ def fileMonitor(dir):
 
 
 def fileSaver(path):
-
+    print("entering filesaver")
     while True:
         sleep(3)
         dtString = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -49,7 +50,7 @@ pool = Pool(processes=2)
 
 p1 = pool.apply_async(fileMonitor,args=(dir,))
 
-p2 = pool.apply_async(fileSaver,dir)
+p2 = pool.apply_async(fileSaver,args=(dir,))
 
 print(p1.get(timeout=30))
 

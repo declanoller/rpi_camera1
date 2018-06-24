@@ -1,8 +1,8 @@
 
 # import the necessary packages
 #from pyimagesearch.tempimage import TempImage
-from picamera.array import PiRGBArray
-from picamera import PiCamera
+#from picamera.array import PiRGBArray
+#from picamera import PiCamera
 import argparse
 import warnings
 import datetime
@@ -13,6 +13,37 @@ import time
 import cv2
 import os
 import sys
+import glob
+
+
+if len(sys.argv)>1:
+	picPath = sys.argv[1]
+else:
+	print('need path to analyze')
+	exit(0)
+
+outputPath = picPath + '/outputfolder'
+os.system('mkdir ' + outputPath)
+
+picFiles = glob.glob(picPath+'/'+'*.jpg')
+
+picFiles.sort()
+
+print(len(picFiles))
+
+
+"""test = cv2.imread(picFiles[0])
+cv2.imshow('meow',test)
+cv2.waitKey(0)
+cv2.destroyAllWindows()"""
+
+
+#print(os.path.split(picFiles[0])[-1])
+
+#exit(0)
+
+
+
 
 
 conf = {
@@ -22,59 +53,48 @@ conf = {
 	"delta_thresh" : 45,
 	"resolution" : [640, 480],
 	"fps" : 16,
-	"min_area" : 800,
+	"min_area" : 1000,
 	"dil_iters" : 20
 }
 
-# initialize the camera and grab a reference to the raw camera capture
-camera = PiCamera()
-camera.resolution = tuple(conf["resolution"])
-camera.framerate = conf["fps"]
-rawCapture = PiRGBArray(camera, size=tuple(conf["resolution"]))
-
-# allow the camera to warmup, then initialize the average frame, last
-# uploaded timestamp, and frame motion counter
-print("[INFO] warming up...")
-time.sleep(conf["camera_warmup_time"])
 avg = None
-lastUploaded = datetime.datetime.now()
 motionCounter = 0
 
-#Create remote dir for images and prepare paths
-startDateTimeString = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-remoteHost = "declan@TITTYWHISKERS88"
-remotePath = "/home/declan/Documents/code/data/rpi_incoming/motion_detection_incoming/"
-os.system("mkdir "+startDateTimeString)
-scpCommandDir = 'scp -r %s %s:%s' % (startDateTimeString, remoteHost, remotePath)
-os.system(scpCommandDir)
-os.system('rm -r ' + startDateTimeString)
-remotePath = remotePath + startDateTimeString
+#remoteHost = "declan@TITTYWHISKERS88"
+#remotePath = "/home/declan/Documents/code/data/rpi_incoming/motion_detection_incoming/"
+#scpCommand = 'scp "%s" "%s:%s"' % (tempPicName, remoteHost, remotePath)
 
-#Get CLI arguments for notes for a run
-if len(sys.argv)>1:
-	notes = sys.argv[1]
-else:
-	notes = "no notes"
 
-#Prepare log file
+
+"""startDateTimeString = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logFileName = "Log_" + startDateTimeString + '.txt'
 fLog = open(logFileName,'w')
 fLog.write("Run notes: " + notes + "\n")
 fLog.write("{}\t{}\t{}\t{}\t{}\n".format("DateTime","x1","y1","x2","y2"))
 fLog.close()
-fLog = open(logFileName,'a')
+fLog = open(logFileName,'a')"""
 
 
 print("Starting to detect!")
 
 # capture frames from the camera
-for f in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+#for f in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+
+
+for i,fName in enumerate(picFiles):
+	startTime = datetime.datetime.now()
+	print(i)
+	'''if i>3:
+		break'''
+
+	f = cv2.imread(fName)
 	# grab the raw NumPy array representing the image and initialize
 	# the timestamp and occupied/unoccupied text
 
 	occupied = False
 
-	frame = f.array
+	frame = f
+	#frame = f.array
 	timestamp = datetime.datetime.now()
 	text = "Unoccupied"
 
@@ -87,7 +107,7 @@ for f in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True
 	if avg is None:
 		print("[INFO] starting background model...")
 		avg = gray.copy().astype("float")
-		rawCapture.truncate(0)
+		#rawCapture.truncate(0)
 		continue
 
 	# accumulate the weighted average between the current frame and
@@ -105,6 +125,7 @@ for f in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True
 	thresh = cv2.dilate(thresh, None, iterations=conf["dil_iters"])
 	cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
 		cv2.CHAIN_APPROX_SIMPLE)
+
 	cnts = cnts[0] if imutils.is_cv2() else cnts[1]
 
 	# loop over the contours
@@ -122,30 +143,24 @@ for f in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True
 		text = "Occupied"
 
 		# draw the text and timestamp on the frame
-		dateString = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+		#dateString = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 		#ts = timestamp.strftime("%A %d %B %Y %I:%M:%S%p")
 		#cv2.putText(frame, "Room Status: {}".format(text), (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-		cv2.putText(frame, dateString, (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
+		#cv2.putText(frame, dateString, (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
 
 		ext = ".jpg"
-		tempPicName = dateString + ext
-		cv2.imwrite(tempPicName,frame)
+		fName = os.path.split(fName)[-1]
+		print("outputting to ",(outputPath + '/' + fName))
+		cv2.imwrite(outputPath + '/' + fName,frame)
 
-		fLog.write("{}\t{}\t{}\t{}\t{}\n".format(dateString,x,y,x + w,y + h))
-
-
-		scpCommandImg = 'scp %s %s:%s' % (tempPicName, remoteHost, remotePath)
-		os.system(scpCommandImg)
-		scpCommandLog = 'scp %s %s:%s' % (logFileName, remoteHost, remotePath)
-		fLog.close()
-		os.system(scpCommandLog)
-		fLog = open(logFileName,'a')
-		rmCommand = 'rm ' + tempPicName
-		os.system(rmCommand)
+		#fLog.write("{}\t{}\t{}\t{}\t{}\n".format(dateString,x,y,x + w,y + h))
 
 	if not occupied:
 		cv2.accumulateWeighted(gray, avg, alpha)
+	#print("iteration took ",datetime.datetime.now() - startTime)
 
 
-	rawCapture.truncate(0)
-fLog.close()
+
+
+
+#

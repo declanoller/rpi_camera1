@@ -26,40 +26,6 @@ conf = {
 	"dil_iters" : 20
 }
 
-def processFile(fName,remoteHost,remotePath):
-    dtString = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    print("Processed file "+fName+" at time "+dtString+"\n")
-
-	scpCommandImg = 'scp %s %s:%s' % (fName, remoteHost, remotePath)
-	os.system(scpCommandImg)
-	scpCommandLog = 'scp %s %s:%s' % (logFileName, remoteHost, remotePath)
-	fLog.close()
-	os.system(scpCommandLog)
-	fLog = open(logFileName,'a')
-	rmCommand = 'rm ' + tempPicName
-	os.system(rmCommand)
-
-
-def fileMonitor(dir):
-    print("entering filemonitor")
-    processedFiles = []
-
-    files = os.listdir(dir)
-    nFiles = len(files)
-
-    print("there are {} files in the directory.".format(nFiles))
-
-    while True:
-        sleep(.5)
-        files = os.listdir(dir)
-        if len(files)>0:
-            print("new files found")
-            nFiles = len(files)
-            print("this many files now:",nFiles)
-            [processFile(file) for file in files if file not in processedFiles]
-            [processedFiles.append(file) for file in files if file not in processedFiles]
-
-
 # initialize the camera and grab a reference to the raw camera capture
 camera = PiCamera()
 camera.resolution = tuple(conf["resolution"])
@@ -78,11 +44,10 @@ motionCounter = 0
 startDateTimeString = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 remoteHost = "declan@TITTYWHISKERS88"
 remotePath = "/home/declan/Documents/code/data/rpi_incoming/motion_detection_incoming/"
-localPath = startDateTimeString
-os.system("mkdir "+localPath)
+os.system("mkdir "+startDateTimeString)
 scpCommandDir = 'scp -r %s %s:%s' % (startDateTimeString, remoteHost, remotePath)
 os.system(scpCommandDir)
-#os.system('rm -r ' + startDateTimeString)
+os.system('rm -r ' + startDateTimeString)
 remotePath = remotePath + startDateTimeString
 
 #Get CLI arguments for notes for a run
@@ -93,10 +58,11 @@ else:
 
 #Prepare log file
 logFileName = "Log_" + startDateTimeString + '.txt'
-fLog = open(localPath + '/' + logFileName,'w')
+fLog = open(logFileName,'w')
 fLog.write("Run notes: " + notes + "\n")
 fLog.write("{}\t{}\t{}\t{}\t{}\n".format("DateTime","x1","y1","x2","y2"))
 fLog.close()
+fLog = open(logFileName,'a')
 
 
 print("Starting to detect!")
@@ -163,13 +129,19 @@ for f in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True
 
 		ext = ".jpg"
 		tempPicName = dateString + ext
-		cv2.imwrite(localPath + '/' + tempPicName,frame)
+		cv2.imwrite(tempPicName,frame)
 
-		fLog = open(logFileName,'a')
 		fLog.write("{}\t{}\t{}\t{}\t{}\n".format(dateString,x,y,x + w,y + h))
+
+
+		scpCommandImg = 'scp %s %s:%s' % (tempPicName, remoteHost, remotePath)
+		os.system(scpCommandImg)
+		scpCommandLog = 'scp %s %s:%s' % (logFileName, remoteHost, remotePath)
 		fLog.close()
-
-
+		os.system(scpCommandLog)
+		fLog = open(logFileName,'a')
+		rmCommand = 'rm ' + tempPicName
+		os.system(rmCommand)
 
 	if not occupied:
 		cv2.accumulateWeighted(gray, avg, alpha)

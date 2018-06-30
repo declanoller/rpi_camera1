@@ -17,7 +17,7 @@ ext = ".jpg"
 file_list = glob.glob(picPath + '/' + '*' + ext) # Get all the pngs in the current directory
 #list.sort(file_list, key=lambda x: int(x.split('_')[1].split('.png')[0])) # Sort the images by #, this may need to be tweaked for your use case
 list.sort(file_list) # Sort the images by #, this may need to be tweaked for your use case
-
+print(file_list)
 with open('image_list.txt', 'w') as file:
     for item in file_list:
         file.write("%s\n" % item)

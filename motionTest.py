@@ -1,62 +1,54 @@
-
-# import the necessary packages
-#from pyimagesearch.tempimage import TempImage
 from picamera.array import PiRGBArray
 from picamera import PiCamera
 import argparse
 import warnings
 import datetime
-#import dropbox
 import imutils
-#import json
 import time
 import cv2
 import os
 import sys
+from glob import glob
+from multiprocessing import Pool
 
 
-conf = {
-	"min_upload_seconds" : 3.0,
-	"min_motion_frames" : 8,
-	"camera_warmup_time" : 2.5,
-	"delta_thresh" : 45,
-	"resolution" : [640, 480],
-	"fps" : 16,
-	"min_area" : 800,
-	"dil_iters" : 20
-}
 
 def processFile(fName,remoteHost,remotePath):
-    dtString = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    print("Processed file "+fName+" at time "+dtString+"\n")
-	scpCommandImg = 'scp %s %s:%s' % (fName, remoteHost, remotePath)
+	scpCommandImg = ("scp {} {}:{}".format(fName,remoteHost,remotePath))
 	os.system(scpCommandImg)
 	rmCommand = 'rm ' + fName
 	os.system(rmCommand)
 
 
-def fileMonitor(logFileName,remoteHost,remotePath):
-    print("entering filemonitor")
-    processedFiles = []
+def fileMonitor(logFileName,localPath,remoteHost,remotePath):
+	print("entering filemonitor")
+	processedFiles = []
 
-    files = os.listdir(dir)
-    nFiles = len(files)
-
-    print("there are {} files in the directory.".format(nFiles))
-
-    while True:
-        files = os.listdir(dir)
-        if len(files)>1:
-            print("new files found")
-            nFiles = len(files)
-            print("this many files now:",nFiles)
-            [processFile(file,remoteHost,remotePath) for file in files if file not in processedFiles]
-            [processedFiles.append(file) for file in files if file not in processedFiles]
+	while True:
+		#files = os.listdir(dir)
+		files = glob(localPath+'/'+'*.jpg')
+		if len(files)>0:
+			print("sending these files:",files)
+			[processFile(file,remoteHost,remotePath) for file in files if file not in processedFiles]
+			[processedFiles.append(file) for file in files if file not in processedFiles]
 			scpCommandLog = 'scp %s %s:%s' % (logFileName, remoteHost, remotePath)
 			os.system(scpCommandLog)
 
 
 def cameraStream(logFileName,localPath,startDateTimeString):
+
+
+	#Conf stuff
+	conf = {
+		"min_upload_seconds" : 3.0,
+		"min_motion_frames" : 8,
+		"camera_warmup_time" : 2.5,
+		"delta_thresh" : 45,
+		"resolution" : [640, 480],
+		"fps" : 16,
+		"min_area" : 1500,
+		"dil_iters" : 20
+	}
 
 	# initialize the camera and grab a reference to the raw camera capture
 	camera = PiCamera()
@@ -109,7 +101,7 @@ def cameraStream(logFileName,localPath,startDateTimeString):
 		cnts = cnts[0] if imutils.is_cv2() else cnts[1]
 
 		# loop over the contours
-		for c in cnts:
+		for i,c in enumerate(cnts):
 			# if the contour is too small, ignore it
 			if cv2.contourArea(c) < conf["min_area"]:
 				continue
@@ -120,16 +112,17 @@ def cameraStream(logFileName,localPath,startDateTimeString):
 			print("Object detected!")
 			(x, y, w, h) = cv2.boundingRect(c)
 			cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-			text = "Occupied"
 
 			# draw the text and timestamp on the frame
-			dateString = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+			#dateString = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+			dateString = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+"."+str(int(int(datetime.now().strftime("%f"))/1000.0))
+
 			#ts = timestamp.strftime("%A %d %B %Y %I:%M:%S%p")
 			#cv2.putText(frame, "Room Status: {}".format(text), (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 			cv2.putText(frame, dateString, (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
 
 			ext = ".jpg"
-			tempPicName = dateString + ext
+			tempPicName = dateString + '_' + str(i) + ext
 			cv2.imwrite(localPath + '/' + tempPicName,frame)
 
 			fLog = open(logFileName,'a')
@@ -143,8 +136,6 @@ def cameraStream(logFileName,localPath,startDateTimeString):
 
 
 		rawCapture.truncate(0)
-
-
 
 
 
@@ -177,13 +168,18 @@ fLog.close()
 
 pool = Pool(processes=2)
 
-p1 = pool.apply_async(fileMonitor,args=(logFileName,remoteHost,remotePath))
+p1 = pool.apply_async(fileMonitor,args=(logFileName,localPath,remoteHost,remotePath))
 
-p2 = pool.apply_async(cameraStream,args=(logFileName,startDateTimeString))
+p2 = pool.apply_async(cameraStream,args=(logFileName,localPath,startDateTimeString))
 
-print(p1.get(timeout=30))
 
-print(p2.get(timeout=30))
+print(p1.get(timeout=1800))
+
+print(p2.get(timeout=1800))
+
+'''print(p1.get(timeout=None))
+
+print(p2.get(timeout=None))'''
 
 
 

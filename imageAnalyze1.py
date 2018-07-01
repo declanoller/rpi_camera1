@@ -8,6 +8,8 @@ import pandas as pd
 from tabulate import tabulate
 import numpy as np
 import keras
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 global model
 global dir
@@ -76,7 +78,9 @@ if not CSVexists:
 df = pd.read_csv(csvFileName,delimiter='\t')
 print('\nCSV file:')
 print(tabulate(df.head(), headers=df.columns.values, tablefmt='psql'))
-processedFiles = set(df["DateTime"].tolist())
+processedFiles = set(df["DateTime"].values.tolist())
+print('this many values in CSV:',len(processedFiles))
+checked_unprocessed = set([])
 
 #Create queue for files to be processed
 q = Q()
@@ -84,14 +88,16 @@ q = Q()
 print('\nLog file:')
 log_df = pd.read_csv(logFileName,delimiter='\t',skiprows=1)
 print(tabulate(log_df.head(), headers=log_df.columns.values, tablefmt='psql'))
+logDates = log_df["DateTime"].values.tolist()
+print('this many values in log file:',len(logDates))
 
 print('\nWaiting for new files...\n')
 while True:
     #Read in log file
     log_df = pd.read_csv(logFileName,delimiter='\t',skiprows=1)
-    logDates = log_df["DateTime"].tolist()
+    logDates = log_df["DateTime"].values.tolist()
 
-    if len(logDates)>len(processedFiles):
+    if len(logDates)>(len(processedFiles)+len(checked_unprocessed)):
         print('{} file(s) to be processed'.format(len(logDates)-len(processedFiles)))
         [q.put(date) for date in logDates if not date in processedFiles]
 
@@ -105,67 +111,31 @@ while True:
 
             print('analyzing image',date+'.jpg'+' at coords '+str(coords))
             #Analyze with keras
-            obj,cert = classifyImage(dir+'/'+date+'.jpg',coords)
-            print('detected '+obj+' with certainty '+str(cert))
+            imgFileName = dir+'/'+date+'.jpg'
+            if os.path.exists(imgFileName):
+                obj,cert = classifyImage(imgFileName,coords)
 
-            df = df.append(tempdf)
+                print('detected '+obj+' with certainty '+str(cert))
 
-            df.loc[df['DateTime']==date,'Object'] = obj
-            df.loc[df['DateTime']==date,'Certainty'] = cert
+                df = df.append(tempdf)
 
-            df.to_csv(csvFileName,sep="\t",index=False)
-            processedFiles.add(date)
+                df.loc[df['DateTime']==date,'Object'] = obj
+                df.loc[df['DateTime']==date,'Certainty'] = str(round(cert,5))
+
+                df.to_csv(csvFileName,sep="\t",index=False)
+                processedFiles.add(date)
+                
+            else:
+                if date not in checked_unprocessed:
+                    print('image not found yet, putting back on the queue')
+                    q.put(date)
+                    checked_unprocessed.add(date)
+                    continue
+
 
         print('\nWaiting for new files...\n')
 
     sleep(1.0)
-
-exit(0)
-
-
-
-
-#Check if log file is already there
-
-#get column of datetimes of images, make this the filelist
-
-#main loop:
-#get current file list
-#compare to the current processed file list (the one initially from the CSV)
-
-#Gotta be careful to consider what counts as "processed" so far. Probs best to
-#make sure whatever's IN the pandas file, not in some list.
-
-
-
-
-
-
-
-
-
-
-
-print(log_df.columns.values)
-print("log file length:",len(log_df))
-print(tabulate(log_df.head(), headers=log_df.columns.values, tablefmt='psql'))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

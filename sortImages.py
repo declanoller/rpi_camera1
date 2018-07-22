@@ -36,7 +36,7 @@ df = pd.read_csv(csvFileName,delimiter='\t')
 print('\nCSV file:')
 print(tabulate(df.head(), headers=df.columns.values, tablefmt='psql'))
 
-certThresh = 0.1
+certThresh = 0.5
 detected = df[df['Certainty']>=certThresh]
 not_detected = df[df['Certainty']<certThresh]
 

@@ -18,7 +18,7 @@ def watchKB(event,stdin):
 
 if __name__ == '__main__':
 
-    
+
     m = multiprocessing.Manager()
     event = m.Event()
 
@@ -36,11 +36,11 @@ if __name__ == '__main__':
     #p2 = pool.apply_async(t2.watchKB,args=(event,sys.stdin))
     #p2 = pool.apply_async(t2.watchKB,args=(event,sys.stdin))
 
-    watchKB(event,sys.stdin)
     #watchKB(event,newstdin)
 
     print(p1.get(timeout=1000))
     #print(p2.get(timeout=1000))
 
+    watchKB(event,sys.stdin)
 
     exit(0)

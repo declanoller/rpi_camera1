@@ -14,9 +14,9 @@ def watchKB(event,stdin):
     print('start kb loop')
     while True:
         k = stdin.readline().strip()
-        print(k)watchKB(event,stdin)
+        #print(k)
         if k=='q':
-            print('you pressed q!')
+            print('\n\nyou pressed q!')
             event.set()
             return(0)
 
@@ -45,13 +45,14 @@ pool = Pool(processes=2)
 p1 = pool.apply_async(ct.cameraStream,args=(ft,lf,df))
 p2 = pool.apply_async(df.debugUpdateLoop)
 
+watchKB(close_event,sys.stdin)
+
 timeout_hours = 10
 timeout_s = timeout_hours*3600
-print(p1.get(timeout=timeout_s))
-print(p2.get(timeout=timeout_s))
+p1.get(timeout=timeout_s)
+p2.get(timeout=timeout_s)
 
 
-watchKB(event,stdin)
 
 
 

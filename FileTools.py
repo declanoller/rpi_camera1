@@ -1,5 +1,5 @@
 from glob import glob
-
+from datetime import datetime
 import subprocess
 
 
@@ -18,7 +18,7 @@ class FileTools:
 
 		#Create remote dir for images and prepare paths
 		print('creating local mount point dir', self.mount_point)
-		subprocess.check_call(['mkdir',self.mount_point])
+		subprocess.check_call(['mkdir','-p',self.mount_point])
 		print('mounting remote directory', self.remote_host_path)
 		subprocess.check_call(['sshfs',self.remote_host_path, self.mount_point])
 
@@ -31,7 +31,7 @@ class FileTools:
 
 
 	def unmountFS(self):
-		print('unmounting remote directory', self.remote_host_path)
+		print('unmounting remote directory', self.remote_base_path)
 		subprocess.check_call(['fusermount','-u',self.mount_point])
 		print('done!')
 
